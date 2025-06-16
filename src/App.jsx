@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import styles from './App.module.css';
 
 const dataFormInitial = {
@@ -43,15 +43,11 @@ export const App = () => {
     checkPasswordError: null,
   });
 
+  const submitButtonRef = useRef(null);
+
   const onBlurField = ({ target }) => {
     const { name, value } = target;
-
-    let error = null;
-
-    if (validationRules[name]) {
-      error = validationRules[name](value, fieldsForm);
-    }
-
+    const error = validationRules[name] ? validationRules[name](value, fieldsForm) : null;
     setFieldsFormErrors((errors) => ({ ...errors, [`${name}Error`]: error }));
   };
 
@@ -62,19 +58,30 @@ export const App = () => {
   };
 
   const hasAnyErrors = Object.values(fieldsFormErrors).some((error) => error !== null);
-
   const areAllFieldsFilled = Object.values(fieldsForm).every((value) => value.trim() !== '');
-
   const isSubmitDisabled = hasAnyErrors || !areAllFieldsFilled;
+
+  useEffect(() => {
+    const allFieldsFilled = Object.values(fieldsForm).every((value) => value.trim() !== '');
+    if (!allFieldsFilled) {
+      return;
+    }
+
+    const isEmailValid = validationRules.email(fieldsForm.email) === null;
+    const isPasswordValid = validationRules.password(fieldsForm.password) === null;
+    const isCheckPasswordValid = validationRules.checkPassword(fieldsForm.checkPassword, fieldsForm) === null;
+
+    if (isEmailValid && isPasswordValid && isCheckPasswordValid) {
+      submitButtonRef.current?.focus();
+    }
+  }, [fieldsForm]);
 
   const submitForm = (event) => {
     event.preventDefault();
-
     const dataToSend = {
       email: fieldsForm.email,
       password: fieldsForm.password,
     };
-
     sendFormData(dataToSend);
   };
 
@@ -127,7 +134,7 @@ export const App = () => {
             onBlur={onBlurField}
           />
         </div>
-        <button type="submit" className={styles.registerButton} disabled={isSubmitDisabled}>
+        <button type="submit" ref={submitButtonRef} className={styles.registerButton} disabled={isSubmitDisabled}>
           Зарегистрироваться
         </button>
       </form>
