@@ -1,140 +1,103 @@
-import { useEffect, useRef, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
 import styles from './App.module.css';
+import { useEffect, useRef } from 'react';
 
-const dataFormInitial = {
-  email: '',
-  password: '',
-};
-
-const validationRules = {
-  email: (value) => {
-    if (!/^[\w]+@[\w]+\.[\w]{2,}$/.test(value)) {
-      return 'Неверный Email. Допустимый Email - example@mail.ru';
-    }
-    return null;
-  },
-  password: (value) => {
-    if (value.length < 6) {
-      return 'Неверный пароль. Допустимый Пароль - 6 символов';
-    }
-    return null;
-  },
-  checkPassword: (value, fieldsForm) => {
-    if (fieldsForm.password !== value) {
-      return 'Пароли не совпадают';
-    }
-    return null;
-  },
-};
+const formSchema = yup.object({
+  email: yup
+    .string()
+    .required('Email обязателен для заполнения')
+    .matches(/^[\w]+@[\w]+\.[\w]{2,}$/, 'Неверный формат Email. Пример: example@mail.ru'),
+  password: yup
+    .string()
+    .required('Пароль обязателен для заполнения')
+    .min(6, 'Пароль должен содержать минимум 6 символов'),
+  checkPassword: yup
+    .string()
+    .required('Подтверждение пароля обязательно')
+    .oneOf([yup.ref('password'), null], 'Пароли должны совпадать'),
+});
 
 const sendFormData = (formData) => {
   console.log('Отправляем данные формы:', formData);
 };
 
 export const App = () => {
-  const [fieldsForm, setFieldsForm] = useState({
-    ...dataFormInitial,
-    checkPassword: '',
-  });
-
-  const [fieldsFormErrors, setFieldsFormErrors] = useState({
-    emailError: null,
-    passwordError: null,
-    checkPasswordError: null,
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid },
+    reset,
+  } = useForm({
+    resolver: yupResolver(formSchema),
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
+    defaultValues: {
+      email: '',
+      password: '',
+      checkPassword: '',
+    },
   });
 
   const submitButtonRef = useRef(null);
 
-  const onBlurField = ({ target }) => {
-    const { name, value } = target;
-    const error = validationRules[name] ? validationRules[name](value, fieldsForm) : null;
-    setFieldsFormErrors((errors) => ({ ...errors, [`${name}Error`]: error }));
-  };
-
-  const onChangeFieldForm = ({ target }) => {
-    const { name, value } = target;
-    setFieldsForm((fields) => ({ ...fields, [name]: value }));
-    setFieldsFormErrors((prevErrors) => ({ ...prevErrors, [`${name}Error`]: null }));
-  };
-
-  const hasAnyErrors = Object.values(fieldsFormErrors).some((error) => error !== null);
-  const areAllFieldsFilled = Object.values(fieldsForm).every((value) => value.trim() !== '');
-  const isSubmitDisabled = hasAnyErrors || !areAllFieldsFilled;
-
   useEffect(() => {
-    const allFieldsFilled = Object.values(fieldsForm).every((value) => value.trim() !== '');
-    if (!allFieldsFilled) {
-      return;
+    if (isValid && submitButtonRef.current) {
+      submitButtonRef.current.focus();
     }
+  }, [isValid]);
 
-    const isEmailValid = validationRules.email(fieldsForm.email) === null;
-    const isPasswordValid = validationRules.password(fieldsForm.password) === null;
-    const isCheckPasswordValid = validationRules.checkPassword(fieldsForm.checkPassword, fieldsForm) === null;
-
-    if (isEmailValid && isPasswordValid && isCheckPasswordValid) {
-      submitButtonRef.current?.focus();
-    }
-  }, [fieldsForm]);
-
-  const submitForm = (event) => {
-    event.preventDefault();
-    const dataToSend = {
-      email: fieldsForm.email,
-      password: fieldsForm.password,
-    };
+  const onSubmit = (data) => {
+    const { checkPassword, ...dataToSend } = data;
     sendFormData(dataToSend);
+    reset();
   };
 
   return (
     <div className={styles.registrationContainer}>
       <h2 className={styles.title}>Регистрация нового пользователя</h2>
-      <form className={styles.registrationForm} onSubmit={submitForm}>
+      <form className={styles.registrationForm} onSubmit={handleSubmit(onSubmit)}>
         <div className={styles.formGroup}>
-          <label htmlFor="email" className={styles.label}>
+          <label htmlFor="Email" className={styles.label}>
             Email:
           </label>
-          {fieldsFormErrors.emailError && <p className={styles.error}>{fieldsFormErrors.emailError}</p>}
+          {errors.email && <p className={styles.error}>{errors.email.message}</p>}
           <input
             type="email"
-            name="email"
+            id="Email"
             placeholder="Введите ваш email..."
             className={styles.input}
-            value={fieldsForm.email}
-            onChange={onChangeFieldForm}
-            onBlur={onBlurField}
+            {...register('email')}
           />
         </div>
         <div className={styles.formGroup}>
           <label htmlFor="password" className={styles.label}>
             Пароль:
           </label>
-          {fieldsFormErrors.passwordError && <p className={styles.error}>{fieldsFormErrors.passwordError}</p>}
+          {errors.password && <p className={styles.error}>{errors.password.message}</p>}
           <input
             type="password"
-            name="password"
+            id="password"
             placeholder="Введите ваш пароль..."
             className={styles.input}
-            value={fieldsForm.password}
-            onChange={onChangeFieldForm}
-            onBlur={onBlurField}
+            {...register('password')}
           />
         </div>
         <div className={styles.formGroup}>
-          <label htmlFor="confirm-password" className={styles.label}>
+          <label htmlFor="checkPassword" className={styles.label}>
             Повтор пароля:
           </label>
-          {fieldsFormErrors.checkPasswordError && <p className={styles.error}>{fieldsFormErrors.checkPasswordError}</p>}
+          {errors.checkPassword && <p className={styles.error}>{errors.checkPassword.message}</p>}
           <input
             type="password"
-            name="checkPassword"
+            id="checkPassword"
             placeholder="Повторите ваш пароль..."
             className={styles.input}
-            value={fieldsForm.checkPassword}
-            onChange={onChangeFieldForm}
-            onBlur={onBlurField}
+            {...register('checkPassword')}
           />
         </div>
-        <button type="submit" ref={submitButtonRef} className={styles.registerButton} disabled={isSubmitDisabled}>
+        <button type="submit" ref={submitButtonRef} className={styles.registerButton} disabled={!isValid}>
           Зарегистрироваться
         </button>
       </form>
